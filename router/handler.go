@@ -8,8 +8,8 @@ import (
 )
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	// ../static を返す
-	http.ServeFile(w, r, "static/")
+	// static/index.html を返す
+	http.ServeFile(w, r, "static/index.html")
 }
 
 func tunrOnHandler(bot *switchbot.SwitchBot) http.HandlerFunc {
