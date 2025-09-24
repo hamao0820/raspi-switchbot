@@ -16,6 +16,7 @@ func NewRouter(bot *switchbot.SwitchBot) *chi.Mux {
 	r.Use(middleware.Recoverer)
 
 	r.Get("/", homeHandler)
+	r.Post("/api/turn_on", tunrOnHandler(bot))
 
 	return r
 }

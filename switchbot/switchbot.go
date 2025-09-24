@@ -56,12 +56,18 @@ func ScanSwitchBot(ctx context.Context, address string) (*SwitchBot, error) {
 	return &SwitchBot{address: result.Address}, nil
 }
 
-func (bot *SwitchBot) TurnOn() error {
+func (bot *SwitchBot) TurnOn(ctx context.Context) error {
 	device, err := adapter.Connect(bot.address, bluetooth.ConnectionParams{})
 	if err != nil {
 		return fmt.Errorf("connect to device: %w", err)
 	}
 	defer device.Disconnect()
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("before discover services: %w", ctx.Err())
+	default:
+	}
 
 	services, err := device.DiscoverServices([]bluetooth.UUID{mustParseUUID("cba20d00-224d-11e6-9fb8-0002a5d5c51b")})
 	if err != nil {
@@ -72,6 +78,12 @@ func (bot *SwitchBot) TurnOn() error {
 	}
 
 	botService := services[0]
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("before discover characteristics: %w", ctx.Err())
+	default:
+	}
 
 	chars, err := botService.DiscoverCharacteristics([]bluetooth.UUID{
 		mustParseUUID("cba20003-224d-11e6-9fb8-0002a5d5c51b"),
@@ -92,11 +104,23 @@ func (bot *SwitchBot) TurnOn() error {
 		writeChar = chars[0]
 	}
 
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("before enable notifications: %w", ctx.Err())
+	default:
+	}
+
 	// Subscribe to notifications from the bot.
 	if err := notifyChar.EnableNotifications(func(value []byte) {
 		log.Printf("notification: %x\n", value)
 	}); err != nil {
 		return fmt.Errorf("enable notification: %w", err)
+	}
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("before write command: %w", ctx.Err())
+	default:
 	}
 
 	// Write command to the characteristic to turn on the bot.
