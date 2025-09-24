@@ -8,10 +8,12 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	"github.com/hamao0820/raspi-switchbot/router"
+	"github.com/hamao0820/raspi-switchbot/switchbot"
 )
 
 type Config struct {
-	Port string `env:"PORT" envDefault:"8080"`
+	Port    string `env:"PORT" envDefault:"8080"`
+	Address string `env:"SWITCHBOT_ADDRESS,required"`
 }
 
 func main() {
@@ -23,9 +25,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	bot, err := switchbot.ScanSwitchBot(ctx, cfg.Address)
+	if err != nil {
+		panic(err)
+	}
+
 	server := http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: router.NewRouter(),
+		Handler: router.NewRouter(bot),
 	}
 
 	go func() {

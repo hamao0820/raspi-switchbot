@@ -5,9 +5,10 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/hamao0820/raspi-switchbot/switchbot"
 )
 
-func NewRouter() *chi.Mux {
+func NewRouter(bot *switchbot.SwitchBot) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Timeout(10 * time.Second))
