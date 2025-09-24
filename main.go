@@ -9,6 +9,7 @@ import (
 	"github.com/caarlos0/env/v11"
 	"github.com/hamao0820/raspi-switchbot/router"
 	"github.com/hamao0820/raspi-switchbot/switchbot"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -17,6 +18,11 @@ type Config struct {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	var cfg Config
 	if err := env.Parse(&cfg); err != nil {
 		panic(err)
