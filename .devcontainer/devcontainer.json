@@ -1,0 +1,13 @@
+{
+  "name": "Ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go"]
+    }
+  }
+}
