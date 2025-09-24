@@ -1,21 +1,42 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"time"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	"github.com/caarlos0/env/v11"
+	"github.com/hamao0820/raspi-switchbot/router"
 )
 
+type Config struct {
+	Port string `env:"PORT" envDefault:"8080"`
+}
+
 func main() {
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("welcome"))
-	})
-	log.Println("Starting server on :8080")
-	if err := http.ListenAndServe(":8080", r); err != nil {
+	var cfg Config
+	if err := env.Parse(&cfg); err != nil {
+		panic(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	server := http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: router.NewRouter(),
+	}
+
+	go func() {
+		<-ctx.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		server.Shutdown(ctx)
+	}()
+
+	log.Printf("Starting server on port :%s", cfg.Port)
+	if err := server.ListenAndServe(); err != nil {
 		panic(err)
 	}
 }
