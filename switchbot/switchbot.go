@@ -28,7 +28,7 @@ func ScanSwitchBot(ctx context.Context, address string) (*SwitchBot, error) {
 	found := make(chan bluetooth.ScanResult, 1)
 	errCh := make(chan error, 1)
 	err := adapter.Scan(func(adapter *bluetooth.Adapter, device bluetooth.ScanResult) {
-		if strings.EqualFold(strings.ReplaceAll(device.Address.String(), ":", ""), strings.ToLower(address)) {
+		if strings.HasSuffix(strings.ToLower(strings.ReplaceAll(device.Address.String(), ":", "")), address) {
 			if err := adapter.StopScan(); err != nil {
 				errCh <- err
 				return
@@ -57,6 +57,51 @@ func ScanSwitchBot(ctx context.Context, address string) (*SwitchBot, error) {
 }
 
 func (bot *SwitchBot) TurnOn(ctx context.Context) error {
+	// 再接続のためのリトライロジック
+	const maxRetries = 3
+	var lastErr error
+
+	for i := range maxRetries {
+		log.Printf("Attempting to turn on SwitchBot (attempt %d/%d)", i+1, maxRetries)
+
+		if err := bot.turnOnAttempt(ctx); err != nil {
+			lastErr = err
+			log.Printf("Turn on attempt %d failed: %v", i+1, err)
+
+			// D-Busエラーの場合、アダプターを再初期化して再試行
+			if strings.Contains(err.Error(), "org.freedesktop.DBus.Properties") ||
+				strings.Contains(err.Error(), "doesn't exist") ||
+				strings.Contains(err.Error(), "Method") && strings.Contains(err.Error(), "signature") {
+
+				log.Printf("D-Bus error detected, reinitializing adapter (attempt %d/%d): %v", i+1, maxRetries, err)
+				if reinitErr := adapter.Enable(); reinitErr != nil {
+					log.Printf("Failed to reinitialize adapter: %v", reinitErr)
+				} else {
+					log.Printf("Successfully reinitialized adapter")
+				}
+
+				if i < maxRetries-1 {
+					sleepDuration := time.Second * time.Duration(i+1) // 段階的バックオフ
+					log.Printf("Waiting %v before retry", sleepDuration)
+					time.Sleep(sleepDuration)
+					continue
+				}
+			}
+
+			// その他のエラーの場合は即座に失敗
+			if i == 0 {
+				return err
+			}
+		} else {
+			log.Printf("Successfully turned on SwitchBot on attempt %d", i+1)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("failed to turn on after %d retries, last error: %w", maxRetries, lastErr)
+}
+
+func (bot *SwitchBot) turnOnAttempt(ctx context.Context) error {
 	device, err := adapter.Connect(bot.address, bluetooth.ConnectionParams{})
 	if err != nil {
 		return fmt.Errorf("connect to device: %w", err)
